@@ -19,6 +19,11 @@ export default async function handler(req, res) {
     const token = tokenData.tenant_access_token;
     if (!token) return res.status(500).json({error: '获取token失败'});
 
+    const fields = {...req.body};
+    if (fields['提交时间']) {
+      fields['提交时间'] = Date.now();
+    }
+
     const writeRes = await fetch(
       `https://open.feishu.cn/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records`,
       {
@@ -27,7 +32,7 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({fields: req.body})
+        body: JSON.stringify({fields})
       }
     );
     const writeData = await writeRes.json();
