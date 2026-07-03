@@ -1,8 +1,13 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+exports.handler = async function(event, context) {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
 
   const APP_ID     = 'cli_aacf7345c2b95beb';
   const APP_SECRET = '4vRwhsC6goY6jAx01ZNGEhSLs6tLOJeF';
@@ -12,17 +17,18 @@ export default async function handler(req, res) {
   try {
     const tokenRes = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({app_id: APP_ID, app_secret: APP_SECRET})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_id: APP_ID, app_secret: APP_SECRET })
     });
     const tokenData = await tokenRes.json();
     const token = tokenData.tenant_access_token;
-    if (!token) return res.status(500).json({error: '获取token失败'});
+    if (!token) return {
+      statusCode: 500, headers,
+      body: JSON.stringify({ error: '获取token失败' })
+    };
 
-    const fields = {...req.body};
-    if (fields['提交时间']) {
-      fields['提交时间'] = Date.now();
-    }
+    const fields = JSON.parse(event.body);
+    if (fields['提交时间']) fields['提交时间'] = Date.now();
 
     const writeRes = await fetch(
       `https://open.feishu.cn/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records`,
@@ -32,13 +38,17 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({fields})
+        body: JSON.stringify({ fields })
       }
     );
     const writeData = await writeRes.json();
-    if (writeData.code !== 0) return res.status(500).json({error: writeData.msg});
-    res.status(200).json({success: true});
+    if (writeData.code !== 0) return {
+      statusCode: 500, headers,
+      body: JSON.stringify({ error: writeData.msg })
+    };
+
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch(err) {
-    res.status(500).json({error: err.message});
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
-}
+};
